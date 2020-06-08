@@ -5,7 +5,7 @@ class PointsController {
 
     async create(req: Request, res: Response) {
 
-        // try {
+        try {
             const {
                 name,
                 email,
@@ -25,12 +25,12 @@ class PointsController {
                 longitude,
                 city,
                 uf,
-                image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=80'
+                image: req.file.filename
             }
 
             const [id] = await knex('points').returning('id').insert(point);
 
-            const receivedPointItems = items.map((item_id: number) => {
+            const receivedPointItems = items.split(',').map((item: string) => Number(item.trim)).map((item_id: number) => {
                 return {
                     item_id,
                     point_id: Number(id)
@@ -48,10 +48,10 @@ class PointsController {
                     ...point,
                 }
             });
-        // } catch {
-        //     console.log('error')
-        //     return res.sendStatus(400);
-        // }
+        } catch {
+            console.log('error')
+            return res.sendStatus(400);
+        }
     }
 
     async show(req: Request, res: Response) {
@@ -64,14 +64,19 @@ class PointsController {
                 res.status(400).json({ message: 'Point not found' });
             }
 
+            const serialization = 
+                 {
+                    ...point,
+                    image_url: `http://192.168.31.199:3333/uploads/${point.image}`
+                }
+            
             const items = await knex('items').join('point_items', 'items.id', '=', 'point_items.item_id').where('point_items.point_id', id).select('items.title');
+
 
             res.json({
                 point: {
-                    ...point,
-                    items: {
-                        items,
-                    }
+                    ...serialization,
+                    items,
                 }
             });
         }
@@ -93,7 +98,14 @@ class PointsController {
                 .distinct()
                 .select('*');
 
-            res.json(points);
+            const serialization = points.map(point => {
+                return {
+                    ...point,
+                    image_url: `http://192.168.31.199:3333/uploads/${point.image}`
+                }
+            })
+
+            return res.json(serialization);
 
         } catch {
             res.sendStatus(500)
